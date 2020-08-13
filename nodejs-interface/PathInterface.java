@@ -1,3 +1,7 @@
+import androidx.documentfile.provider.DocumentFile;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
 public class PathInterface {
 
     DocumentFile workDir;
@@ -16,12 +20,12 @@ public class PathInterface {
     }
 
     @JavascriptInterface
-    public void __njsinterfaceinit() {
-        return "{\"delimiter\": \":\"}";
+    public String __njsinterfaceinit() {
+        return "{\"delimiter\": \":\", \"sep\": \"/\"}";
     }
 
     @JavascriptInterface
-    public void basename(String path) {
+    public String basename(String path) {
         try {
             int sep = path.lastIndexOf('/');
             return path.substring(sep + 1);
@@ -30,7 +34,7 @@ public class PathInterface {
         }
     }
     @JavascriptInterface
-    public void basename(String path, String ext) {
+    public String basename(String path, String ext) {
         try {
             String baseName = basename(path);
 
@@ -42,7 +46,7 @@ public class PathInterface {
     }
 
     @JavascriptInterface
-    public void dirname(String path) {
+    public String dirname(String path) {
         try {
             int sep = path.lastIndexOf('/');
             return path.substring(0, sep);
@@ -52,12 +56,46 @@ public class PathInterface {
     }
 
     @JavascriptInterface
-    public void extname(String path) {
+    public String extname(String path) {
         try {
             int sep = path.lastIndexOf('.');
             return path.substring(sep);
         } catch(Exception ignore) {
             return "";
         }
+    }
+    /*
+    @JavascriptInterface
+    public void format(JSON) { }
+    */
+    @JavascriptInterface
+    public boolean isAbsolute(String path) {
+        return Paths.get(path).isAbsolute();
+    }
+
+    @JavascriptInterface
+    public String join(String first, String... more) {
+        return Paths.get(first, more).toString();
+    }
+
+    @JavascriptInterface
+    public String normalize(String path) {
+        return Paths.get(path).normalize().toString();
+    }
+    /*
+    @JavascriptInterface
+    public JSON parse(String path) { }
+    */
+    @JavascriptInterface
+    public String relative(String from, String to) {
+        return Paths.get(from).relativize(Paths.get(to)).toString();
+    }
+    @JavascriptInterface
+    public String join(String first, String... more) {
+        Path basePath = Paths.get(first);
+        for(int i = 0; i < more.length; i++) {
+            basePath = basePath.resolve(more[i]);
+        }
+        return basePath.toString();
     }
 }
