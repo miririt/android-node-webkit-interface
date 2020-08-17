@@ -1,0 +1,3 @@
+const nw = {
+    'Window': undefined
+};
