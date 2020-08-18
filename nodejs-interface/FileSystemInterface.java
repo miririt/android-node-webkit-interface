@@ -3,10 +3,12 @@ import android.net.Uri;
 
 public class FileSystemInterface {
 
+    Context context;
     DocumentFile workDir;
     Uri workUri;
 
-    public FileSystemInterface(DocumentFile workDir) {
+    public FileSystemInterface(Context context, DocumentFile workDir) {
+        this.context = context;
         this.workDir = workDir;
         this.workUri = workDir.getUri();
     }
@@ -16,15 +18,58 @@ public class FileSystemInterface {
     }
 
     @JavascriptInterface
-    public String __njsinterfaceinit() {
-        return "{\"constants\": {\"UV_FS_SYMLINK_DIR\":1,\"UV_FS_SYMLINK_JUNCTION\":2,\"O_RDONLY\":0,\"O_WRONLY\":1,\"O_RDWR\":2,\"UV_DIRENT_UNKNOWN\":0,\"UV_DIRENT_FILE\":1,\"UV_DIRENT_DIR\":2,\"UV_DIRENT_LINK\":3,\"UV_DIRENT_FIFO\":4,\"UV_DIRENT_SOCKET\":5,\"UV_DIRENT_CHAR\":6,\"UV_DIRENT_BLOCK\":7,\"S_IFMT\":61440,\"S_IFREG\":32768,\"S_IFDIR\":16384,\"S_IFCHR\":8192,\"S_IFLNK\":40960,\"O_CREAT\":256,\"O_EXCL\":1024,\"UV_FS_O_FILEMAP\":536870912,\"O_TRUNC\":512,\"O_APPEND\":8,\"F_OK\":0,\"R_OK\":4,\"W_OK\":2,\"X_OK\":1,\"UV_FS_COPYFILE_EXCL\":1,\"COPYFILE_EXCL\":1,\"UV_FS_COPYFILE_FICLONE\":2,\"COPYFILE_FICLONE\":2,\"UV_FS_COPYFILE_FICLONE_FORCE\":4,\"COPYFILE_FICLONE_FORCE\":4}}";
+    public String accessSync(String path, int mode) {
+        boolean flag = true;
+        //F_OK: 1, R_OK: 2, W_OK: 4, X_OK: 8
+        if(mode & 1 != 0)
+            flag = flag && Files.exists(Paths.get(path));
+        if(mode & 2 != 0)
+            flag = flag && Files.isReadable(Paths.get(path));
+        if(mode & 4 != 0)
+            flag = flag && Files.isWritable(Paths.get(path));
+        if(mode & 8 != 0)
+            flag = flag && Files.isExecutable(Paths.get(path));
     }
-    /*
+
     @JavascriptInterface
-    public String accessSync(String path) { }
-    */
-    @JavascriptInterface
-    public String readFileSync(String path) {
-        
+    public boolean appendFileSync(String path, String data) {
+        FileOutputStream appendStream = null;
+        try {
+            appendStream = context.getContentResolver().openOutputStream(buildUri(path), "a");
+            appendStream.write(data.getBytes());
+            appendStream.flush();
+            appendStream.close();
+
+            return true;
+        } catch(Exception e) {
+            if(appendStream != null) appendStream.close();
+            return false;
+        }
     }
+
+    @JavascriptInterface
+    public boolean copyFileSync(String src, String dst, int mode) {
+        //COPYFILE_EXECL: 1, COPYFILE_FILECLONE: 2, COPYFILE_FILECLONE_FORCE: 4
+
+        if(mode & COPYFILE_EXECL != 0)
+            Files.copy(Paths.get(src), Paths.get(dst), REPLACE_EXISTING);
+        else
+            Files.copy(Paths.get(src), Paths.get(dst));
+    }
+
+    @JavascriptInterface
+    public String existsSync(String path) {
+        return Files.exists(Paths.get(path));
+    }
+
+    @JavascriptInterface
+    public String mkdirSync(String path, boolean recursive) {
+        File targetDir = new File(path);
+        if(recursive) {
+            targetDir.mkdirs();
+        } else {
+            targetDir.mkdir();
+        }
+    }
+
 }

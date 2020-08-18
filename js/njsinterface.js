@@ -62,6 +62,42 @@ _NJSPath.resolve = function(...paths) {
 
 _NJSPath.sep = '/';
 
+function _NJSFileSystem() {
+    throw new Error('This is a static class');
+}
+
+_NJSFileSystem.constants = {
+    'F_OK': 1, 'R_OK': 2, 'W_OK': 4, 'X_OK': 8,
+
+    'COPYFILE_EXECL': 1, 'COPYFILE_FICLONE': 2, 'COPYFILE_FICLONE_FORCE': 4,
+    
+    'O_RDONLY': 1, 'O_WRONLY': 2, 'O_RDWR': 4, 'O_CREAT': 8, 'O_EXCL': 16,
+    'O_NOCTTY': 32, 'O_TRUNC': 64, 'O_APPEND': 128, 'O_DIRECTORY': 256, 'O_NOATIME': 512,
+    'O_NOFOLLOW': 1024, 'O_SYNC': 2048, 'O_DSYNC': 4096, 'O_SYMLINK': 8192, 'O_DIRECT': 16384,
+    'O_NONBLOCK': 32768, 'UV_FS_O_FILEMAP': 65536
+
+}
+
+_NJSFileSystem.accessSync = function(path, mode = _NJSFileSystem.constants.F_OK) {
+    return _NJSFileSystemInterfcae.accessSync(path, mode);
+}
+
+_NJSFileSystem.readFile = function(...args) {
+    let path, options, callback;
+    if(args.length == 2) {
+        [path, callback] = args;
+    } else {
+        [path, options, callback] = args;
+    }
+
+    new Promise(
+        function(resolve, reject) {
+            const data = _NJSFileSystem.readFileSync(path, options);
+            resolve(data);
+        }
+    ).then(data => callback(null, data));
+}
+
 require = function(res) {
     const __njsinterface_list = {
         'path': _NJSPath || {}
