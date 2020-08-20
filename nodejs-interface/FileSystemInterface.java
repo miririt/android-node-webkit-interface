@@ -1,14 +1,15 @@
 import androidx.documentfile.provider.DocumentFile;
 import android.net.Uri;
+import android.content.ContentResolver;
 
 public class FileSystemInterface {
 
-    Context context;
+    ContentResolver resolver;
     DocumentFile workDir;
     Uri workUri;
 
     public FileSystemInterface(Context context, DocumentFile workDir) {
-        this.context = context;
+        this.resolver = context.getContentResolver();
         this.workDir = workDir;
         this.workUri = workDir.getUri();
     }
@@ -18,58 +19,33 @@ public class FileSystemInterface {
     }
 
     @JavascriptInterface
-    public String accessSync(String path, int mode) {
-        boolean flag = true;
-        //F_OK: 1, R_OK: 2, W_OK: 4, X_OK: 8
-        if(mode & 1 != 0)
-            flag = flag && Files.exists(Paths.get(path));
-        if(mode & 2 != 0)
-            flag = flag && Files.isReadable(Paths.get(path));
-        if(mode & 4 != 0)
-            flag = flag && Files.isWritable(Paths.get(path));
-        if(mode & 8 != 0)
-            flag = flag && Files.isExecutable(Paths.get(path));
+    public String readFileSync(String path, String encoding) {
+        try {
+            FileInputStream fis = this.resolver.openInputStream(buildUri(path));
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = inputStream.read(buffer)) != -1) {
+                result.write(buffer, 0, length);
+            }
+
+            return result.toString(encoding);
+        } else {
+            return "";
+        }
     }
 
     @JavascriptInterface
-    public boolean appendFileSync(String path, String data) {
-        FileOutputStream appendStream = null;
+    public boolean writeFileSync(String path, String data, String encoding) {
         try {
-            appendStream = context.getContentResolver().openOutputStream(buildUri(path), "a");
-            appendStream.write(data.getBytes());
-            appendStream.flush();
-            appendStream.close();
+            FileOutputStream fos = this.resolver.openOutputStream(buildUri(path));
+
+            fos.write(data.getBytes(encoding));
 
             return true;
-        } catch(Exception e) {
-            if(appendStream != null) appendStream.close();
+        } else {
             return false;
         }
     }
-
-    @JavascriptInterface
-    public boolean copyFileSync(String src, String dst, int mode) {
-        //COPYFILE_EXECL: 1, COPYFILE_FILECLONE: 2, COPYFILE_FILECLONE_FORCE: 4
-
-        if(mode & COPYFILE_EXECL != 0)
-            Files.copy(Paths.get(src), Paths.get(dst), REPLACE_EXISTING);
-        else
-            Files.copy(Paths.get(src), Paths.get(dst));
-    }
-
-    @JavascriptInterface
-    public String existsSync(String path) {
-        return Files.exists(Paths.get(path));
-    }
-
-    @JavascriptInterface
-    public String mkdirSync(String path, boolean recursive) {
-        File targetDir = new File(path);
-        if(recursive) {
-            targetDir.mkdirs();
-        } else {
-            targetDir.mkdir();
-        }
-    }
-
 }

@@ -79,7 +79,11 @@ _NJSFileSystem.constants = {
 }
 
 _NJSFileSystem.accessSync = function(path, mode = _NJSFileSystem.constants.F_OK) {
-    return _NJSFileSystemInterfcae.accessSync(path, mode);
+    return _NJSFileSystemInterface.accessSync(path, mode);
+}
+
+_NJSFileSystem.readFileSync = function(path, encoding = 'utf8') {
+    return _NJSFileSystemInterface.readFileSync(path, encoding);
 }
 
 _NJSFileSystem.readFile = function(...args) {
@@ -96,6 +100,26 @@ _NJSFileSystem.readFile = function(...args) {
             resolve(data);
         }
     ).then(data => callback(null, data));
+}
+
+_NJSFileSystem.writeFileSync = function(path, data, encoding = 'utf8') {
+    return _NJSFileSystemInterface.writeFileSync(path, data, encoding);
+}
+
+_NJSFileSystem.writeFile = function(...args) {
+    let path, data, options, callback;
+    if(args.length == 3) {
+        [path, data, callback] = args;
+    } else {
+        [path, data, options, callback] = args;
+    }
+
+    new Promise(
+        function(resolve, reject) {
+            const errCode = _NJSFileSystem.writeFileSync(path, options);
+            resolve(errCode);
+        }
+    ).then(data => callback(errCodeerrCode));
 }
 
 require = function(res) {
