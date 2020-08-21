@@ -18,6 +18,19 @@ public class FileSystemInterface {
         return Uri.withAppendedPath(workUri, Uri.encode(path));
     }
 
+    protected static boolean createFile(String path) {
+        if(DocumentFile.fromSingleUri(buildUri(path)).exists()) return true;
+
+        DocumentFile parent = DocumentFile.fromTreeUri(buildUri(path)).getParentFile();
+        DocumentFile target = parent.createFile("application/octet-stream", "__DUMMY_FILE_NAME__");
+        if(target.renameTo(Paths.get(path).getFileName())) {
+            return true;
+        } else {
+            target.delete();
+            return false;
+        }
+    }
+
     @JavascriptInterface
     public String readFileSync(String path, String encoding) {
         try {
@@ -31,7 +44,7 @@ public class FileSystemInterface {
             }
 
             return result.toString(encoding);
-        } else {
+        } catch(Exception ignore) {
             return "";
         }
     }
@@ -39,13 +52,62 @@ public class FileSystemInterface {
     @JavascriptInterface
     public boolean writeFileSync(String path, String data, String encoding) {
         try {
+            createFile(path);
             FileOutputStream fos = this.resolver.openOutputStream(buildUri(path));
 
             fos.write(data.getBytes(encoding));
+            fos.close();
 
             return true;
-        } else {
+        } catch(Exception e) {
             return false;
         }
+    }
+
+    @JavascriptInterface
+    public boolean appendFileSync(String path, String data, String encoding) {
+        try {
+            createFile(path);
+            FileOutputStream fos = this.resolver.openOutputStream(buildUri(path), "a");
+
+            fos.write(data.getBytes(encoding));
+            fos.close();
+
+            return true;
+        } catch(Exception e) {
+            return false;
+        }
+    }
+
+    @JavascriptInterface
+    public boolean copyFileSync(String src, String dst, int mode) {
+
+        FileChannel sourceChannel = null;
+        FileChannel destChannel = null;
+
+        FileInputStream fis = null;
+        FileOutputStream fos = null;
+
+        try {
+            fis = this.resolver.openOutputStream(buildUri(src));
+
+            createFile(dst);
+            fos = this.resolver.openOutputStream(buildUri(dst));
+        } catch(Exception ignore) {
+            return false;
+        }
+
+        try {
+            sourceChannel = fis.getChannel();
+            destChannel = fos.getChannel();
+
+            destChannel.transferFrom(sourceChannel, 0, sourceChannel.size());
+        } finally {
+            sourceChannel.close();
+            destChannel.close();
+            fos.close();
+        }
+        
+        return true;
     }
 }

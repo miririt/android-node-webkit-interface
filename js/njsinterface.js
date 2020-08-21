@@ -116,26 +116,74 @@ _NJSFileSystem.writeFile = function(...args) {
 
     new Promise(
         function(resolve, reject) {
-            const errCode = _NJSFileSystem.writeFileSync(path, options);
-            resolve(errCode);
+            const err = _NJSFileSystem.writeFileSync(path, options) ? true : null;
+            resolve(err);
         }
-    ).then(data => callback(errCodeerrCode));
+    ).then(err => callback(err));
+}
+
+_NJSFileSystem.appendFileSync = function(path, data, encoding = 'utf8') {
+    return _NJSFileSystemInterface.appendFileSync(path, data, encoding);
+}
+
+_NJSFileSystem.appendFile = function(...args) {
+    let path, data, options, callback;
+    if(args.length == 3) {
+        [path, data, callback] = args;
+    } else {
+        [path, data, options, callback] = args;
+    }
+
+    new Promise(
+        function(resolve, reject) {
+            const err = _NJSFileSystem.appendFileSync(path, options) ? true : null;
+            resolve(err);
+        }
+    ).then(err => callback(err));
+}
+
+_NJSFileSystem.copyFileSync = function(src, dest, mode = 0) {
+    return _NJSFileSystemInterface.copyFileSync(src, dest, mode);
+}
+
+_NJSFileSystem.copyFile = function(...args) {
+    let src, dest, mode, callback;
+    if(args.length == 3) {
+        [src, dest, mode] = args;
+    } else {
+        [src, dest, mode, callback] = args;
+    }
+
+    new Promise(
+        function(resolve, reject) {
+            const err = _NJSFileSystem.copyFileSync(src, dest, mode) ? true : null;
+            resolve(err);
+        }
+    ).then(err => callback(err));
 }
 
 require = function(res) {
     const __njsinterface_list = {
-        'path': _NJSPath || {}
+        'path': _NJSPath || {},
+        'fs': _NJSFileSystem || {}
     };
 
     if(__njsinterface_list[res]) {
         return __njsinterface_list[res];
     } else {
         let xhr = new XMLHttpRequest();
-        xhr.open('GET', `${res}`, false);
-        if(xhr.status == 200) {
-            const evalCode = `(function(){ let module = { 'exports': {} }; {${xhr.responseText}} return module.exports; })();`;
-            return eval(evalCode);
+        let exportValue = {};
+        xhr.open('GET', res, false);
+        xhr.send();
+
+        try {
+            if(xhr.status == 200) {
+                console.log(xhr.responseText);
+                const evalCode = `(function(){ let module = { 'exports': {} }; {${xhr.responseText}} return module.exports; })();`;
+                exportValue = eval(evalCode);
+            }
+        } finally {
+            return exportValue;
         }
-        else return {};
     }
 }
