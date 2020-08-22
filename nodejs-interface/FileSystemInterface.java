@@ -32,6 +32,17 @@ public class FileSystemInterface {
     }
 
     @JavascriptInterface
+    public boolean existsSync(String path) {
+        try {
+            DocumentFile target = DocumentFile.fromSingleUri(buildUri(path));
+            if(target.exists()) return true;
+            else return false;
+        } catch(Exception ignore) {
+            return false;
+        }
+    }
+
+    @JavascriptInterface
     public String readFileSync(String path, String encoding) {
         try {
             FileInputStream fis = this.resolver.openInputStream(buildUri(path));
