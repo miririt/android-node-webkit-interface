@@ -121,4 +121,18 @@ public class FileSystemInterface {
         
         return true;
     }
+
+    @JavascriptInterface
+    public boolean mkdirSync(String path, boolean recursive) {
+        String parentPath = Paths.get(path).getParent().toString();
+        if(!recursive) {
+            DocumentFile parentFile = DocumentFile.fromTreeUri(buildUri(parentPath));
+            if(!parentFile.exists()) return false;
+            return parentFile.createDirectory(Paths.get(path).getFileName());
+        } else {
+            DocumentFile parentFile = DocumentFile.fromTreeUri(buildUri(parentPath));
+            if(!parentFile.exists()) mkdirSync(parentPath, true);
+            return parentFile.createDirectory(Paths.get(path).getFileName());
+        }
+    }
 }

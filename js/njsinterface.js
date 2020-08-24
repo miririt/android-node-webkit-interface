@@ -85,7 +85,7 @@ function NJSInterface() {
     };
 
     _NJSFileSystem.readFile = function(...args) {
-        let path, options, callback;
+        let path, options = {}, callback;
         if(args.length == 2) {
             [path, callback] = args;
         } else {
@@ -94,6 +94,7 @@ function NJSInterface() {
 
         new Promise(
             function(resolve, reject) {
+                if(!options.encoding) options = { encoding: 'utf8' };
                 const data = _NJSFileSystem.readFileSync(path, options);
                 resolve(data);
             }
@@ -105,7 +106,7 @@ function NJSInterface() {
     };
 
     _NJSFileSystem.writeFile = function(...args) {
-        let path, data, options, callback;
+        let path, data, options = {}, callback;
         if(args.length == 3) {
             [path, data, callback] = args;
         } else {
@@ -114,7 +115,8 @@ function NJSInterface() {
 
         new Promise(
             function(resolve, reject) {
-                const err = _NJSFileSystem.writeFileSync(path, options) ? true : null;
+                if(!options.encoding) options = { encoding: 'utf8' };
+                const err = _NJSFileSystem.writeFileSync(path, options.encoding) ? true : null;
                 resolve(err);
             }
         ).then(err => callback(err));
@@ -125,7 +127,7 @@ function NJSInterface() {
     };
 
     _NJSFileSystem.appendFile = function(...args) {
-        let path, data, options, callback;
+        let path, data, options = {}, callback;
         if(args.length == 3) {
             [path, data, callback] = args;
         } else {
@@ -134,7 +136,8 @@ function NJSInterface() {
 
         new Promise(
             function(resolve, reject) {
-                const err = _NJSFileSystem.appendFileSync(path, options) ? true : null;
+                if(!options.encoding) options = { encoding: 'utf8' };
+                const err = _NJSFileSystem.appendFileSync(path, options.encoding) ? true : null;
                 resolve(err);
             }
         ).then(err => callback(err));
@@ -145,9 +148,9 @@ function NJSInterface() {
     };
 
     _NJSFileSystem.copyFile = function(...args) {
-        let src, dest, mode, callback;
+        let src, dest, mode = 0, callback;
         if(args.length == 3) {
-            [src, dest, mode] = args;
+            [src, dest, callback] = args;
         } else {
             [src, dest, mode, callback] = args;
         }
@@ -155,6 +158,27 @@ function NJSInterface() {
         new Promise(
             function(resolve, reject) {
                 const err = _NJSFileSystem.copyFileSync(src, dest, mode) ? true : null;
+                resolve(err);
+            }
+        ).then(err => callback(err));
+    };
+
+    _NJSFileSystem.mkdirSync = function(path, recursive = false) {
+        return _NJSFileSystemInterface.mkdirSync(path, recursive);
+    };
+
+    _NJSFileSystem.mkdir = function(...args) {
+        let path, options = {}, callback;
+        if(args.length == 2) {
+            [path, callback] = args;
+        } else {
+            [path, options, callback] = args;
+        }
+
+        new Promise(
+            function(resolve, reject) {
+                if(!options.recursive) options = { recursive: true };
+                const err = _NJSFileSystem.mkdirSync(path, options.recursive) ? true : null;
                 resolve(err);
             }
         ).then(err => callback(err));
