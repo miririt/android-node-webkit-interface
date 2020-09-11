@@ -6,7 +6,7 @@ Android에서 Node-Webkit 기반의 게임(ex. RMMV)을 WebVeiw로 구동하기 
 
 WebView에서 loadUrl 이전에 작성해둡니다
 ```kotlin
-webView.addJavascriptInterface(FileSystemInterface, "_NJSFileSystemInterface");
+webView.addJavascriptInterface(FileSystemInterface(context, DocumentFile.fromFile(context.getExternalFilesDir(null))), "_NJSFileSystemInterface");
 ```
 
 WebViewClient.onPageFinished에서 호출(<content_of...>은 njsinterface.js의 내용을 그대로 옮기면 됩니다)
