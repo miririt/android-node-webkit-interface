@@ -1,55 +1,67 @@
-import android.content.ContentResolver
+package net.miririt.maldives.compat
+
 import android.content.Context
 import android.net.Uri
 import android.webkit.JavascriptInterface
-import android.widget.Toast
 import androidx.documentfile.provider.DocumentFile
-import java.io.ByteArrayOutputStream
-import java.io.FileInputStream
-import java.io.FileOutputStream
-import java.nio.channels.FileChannel
+import net.miririt.maldives.appendUri
+import org.json.JSONArray
+import java.io.*
 
-class FileSystemInterface(var context: Context, workDir: DocumentFile) {
+class FileSystemInterface(var context: Context, private val workDir: DocumentFile) {
 
-    private var resolver: ContentResolver = context.contentResolver
-    private var workUri: Uri = workDir.uri
+    private val workUri: Uri = workDir.uri
+    private val resolver = context.contentResolver
 
-    private fun appendUri(uri: Uri, path: String): Uri {
-        return Uri.parse(uri.toString() + Uri.encode("/$path"))!!
-    }
-
-    private fun getFilename(path: String?): String {
-        if(path == null) return ""
+    private fun getFilename(path: String): String {
         return path.substring(path.lastIndexOf('/') + 1)
     }
 
-    private fun getParentFilename(path: String?): String {
-        if(path == null) return ""
+    private fun getParentFilename(path: String): String {
         val parentPath = path.substring(0, path.lastIndexOf('/'))
         return parentPath.substring(parentPath.lastIndexOf('/') + 1)
     }
 
-    private fun getParentPath(path: String?): String {
-        if(path == null) return ""
+    private fun getParentPath(path: String): String {
         return path.substring(0, path.lastIndexOf('/'))
     }
 
-    private fun touchFile(path: String?): Boolean {
-        if(path == null) return false
+    private fun resolvePath(startDir : DocumentFile, path: String) : DocumentFile {
+        var currentPath = startDir
+        val segments = path.split('/')
+        for(dirName in segments) {
+            if(dirName != "" && dirName != ".")
+                currentPath = currentPath.findFile(dirName)!!
+        }
+        return currentPath
+    }
 
-        try {
-            val existingTarget = DocumentFile.fromSingleUri(context, appendUri(workUri, path))
-            if (existingTarget != null && existingTarget.exists()) return true
-            val parent = DocumentFile.fromTreeUri(context, appendUri(workUri, getParentPath(path)))
-            val target = parent!!.createFile("application/octet-stream", getFilename(path))
-            return if (target!!.renameTo(getFilename(path))) {
-                true
-            } else {
-                target.delete()
-                false
+    private fun touchFile(path : String) : Boolean {
+        return try {
+            val targetFile = DocumentFile.fromSingleUri(context, appendUri(workUri, path))
+
+            if(targetFile != null && targetFile.exists()) {
+                return true
             }
-        } catch(e: Exception) {
-            return false
+
+            val parentFile = try {
+                resolvePath(workDir, getParentPath(path))
+            } catch(e : Exception) {
+                mkdirSync(getParentPath(path), true)
+                resolvePath(workDir, getParentPath(path))
+            }
+
+            val createdFile = parentFile.createFile("", getFilename(path))
+
+            if(createdFile != null && createdFile.exists() && createdFile.name == getFilename(path)) {
+                true
+            } else if(createdFile == null || !createdFile.exists()) {
+                false
+            } else {
+                createdFile.renameTo(getFilename(path))
+            }
+        } catch(e : Exception) {
+            false
         }
     }
 
@@ -58,8 +70,8 @@ class FileSystemInterface(var context: Context, workDir: DocumentFile) {
         if(path == null) return false
 
         return try {
-            val target = DocumentFile.fromSingleUri(context, appendUri(workUri, path))
-            target!!.exists()
+            resolver.openFileDescriptor(appendUri(workUri, path), "r")!!.close()
+            true
         } catch (ignore: Exception) {
             false
         }
@@ -71,16 +83,18 @@ class FileSystemInterface(var context: Context, workDir: DocumentFile) {
 
         return try {
             val fis =
-                resolver.openInputStream(appendUri(workUri, path)) as FileInputStream?
+                resolver.openInputStream(appendUri(workUri, path))
             val baos = ByteArrayOutputStream()
             val buffer = ByteArray(1024 * 256)
             var length: Int
             while (fis!!.read(buffer).also { length = it } > 0) {
                 baos.write(buffer, 0, length)
             }
+
+            fis.close()
             baos.toString(encoding ?: "utf8")
         } catch (ignore: Exception) {
-            ignore.localizedMessage
+            ""
         }
     }
 
@@ -95,7 +109,7 @@ class FileSystemInterface(var context: Context, workDir: DocumentFile) {
         return try {
             touchFile(path)
             val fos =
-                resolver.openOutputStream(appendUri(workUri, path)) as FileOutputStream?
+                resolver.openOutputStream(appendUri(workUri, path))
             fos!!.write(data?.toByteArray(charset(encoding!!)))
             fos.close()
             true
@@ -115,7 +129,7 @@ class FileSystemInterface(var context: Context, workDir: DocumentFile) {
         return try {
             touchFile(path)
             val fos =
-                resolver.openOutputStream(appendUri(workUri, path), "a") as FileOutputStream?
+                resolver.openOutputStream(appendUri(workUri, path), "wa")
             fos!!.write(data?.toByteArray(charset(encoding!!)))
             fos.close()
             true
@@ -126,24 +140,26 @@ class FileSystemInterface(var context: Context, workDir: DocumentFile) {
 
     @JavascriptInterface
     fun copyFileSync(src: String?, dst: String?, mode: Int): Boolean {
-
         if(src == null || dst == null) return false
 
-        val sourceChannel: FileChannel?
-        val destChannel: FileChannel?
-        val fis: FileInputStream?
-        val fos: FileOutputStream?
+        val fis: InputStream?
+        val fos: OutputStream?
         try {
-            fis = resolver.openInputStream(appendUri(workUri, src)) as FileInputStream?
+            fis = resolver.openInputStream(appendUri(workUri, src))
             touchFile(dst)
-            fos = resolver.openOutputStream(appendUri(workUri, dst)) as FileOutputStream?
+            fos = resolver.openOutputStream(appendUri(workUri, dst))
         } catch (ignore: Exception) {
             return false
         }
         try {
-            sourceChannel = fis!!.channel
-            destChannel = fos!!.channel
-            destChannel.transferFrom(sourceChannel, 0, sourceChannel.size())
+            val buffer = ByteArray(1024 * 256)
+            var length: Int
+            while (fis!!.read(buffer).also { length = it } > 0) {
+                fos?.write(buffer, 0, length)
+            }
+
+            fis.close()
+            fos?.close()
         } catch (e: Exception) {
             return false
         }
@@ -151,7 +167,19 @@ class FileSystemInterface(var context: Context, workDir: DocumentFile) {
     }
 
     @JavascriptInterface
+    fun unlinkSync(path : String?) : Boolean {
+        if(path == null) return false
+        return try {
+            val targetFile = DocumentFile.fromSingleUri(context, appendUri(workUri, path))
+            targetFile!!.delete()
+        } catch(e : Exception) {
+            false
+        }
+    }
+
+    @JavascriptInterface
     fun mkdirSync(path: String?, recursive: Boolean): Boolean {
+        if(path == null) return false
         val parentPath = getParentFilename(path)
         return try {
             if (!recursive) {
@@ -168,4 +196,47 @@ class FileSystemInterface(var context: Context, workDir: DocumentFile) {
         }
     }
 
+    @JavascriptInterface
+    fun readdirSync(path: String?): String {
+        if(path == null) return "[]"
+        return try {
+            val jsonFileList = JSONArray()
+            val dir = DocumentFile.fromTreeUri(context, appendUri(workUri, path))
+            val fileList = dir!!.listFiles()
+            for(file in fileList) {
+                jsonFileList.put(file.name)
+            }
+            jsonFileList.toString()
+        } catch(e : java.lang.Exception) {
+            "[]"
+        }
+    }
+
+    @JavascriptInterface
+    fun isFile(path: String?): Boolean {
+        if(path == null) return false
+        return try {
+            val targetFile = DocumentFile.fromTreeUri(context, appendUri(workUri, path))
+            targetFile!!.isFile
+        } catch(e: Exception) { false }
+    }
+
+    @JavascriptInterface
+    fun isDirectory(path: String?): Boolean {
+        if(path == null) return false
+        return try {
+            val targetFile = DocumentFile.fromTreeUri(context, appendUri(workUri, path))
+            targetFile!!.isDirectory
+        } catch(e: Exception) { false }
+    }
+
+    @JavascriptInterface
+    fun fileSize(path: String?): Long {
+        if(path == null) return 0L
+        return try {
+            val targetFile = DocumentFile.fromTreeUri(context, appendUri(workUri, path))
+            if(!targetFile!!.isFile) 0L
+            else targetFile.length()
+        } catch(e: Exception) { 0L }
+    }
 }

@@ -1,9 +1,30 @@
+
+class Buffer extends String {
+	constructor(string, encoding = 'utf8') {
+		if(encoding == 'base64') {
+			super(atob(string));
+        }
+        else if(encoding == 'utf8') {
+            super(string);
+        }
+    }
+
+	static from(string, encoding = 'utf8') {
+        if(encoding == 'base64') {
+			return atob(string);
+        }
+        else if(encoding == 'utf8') {
+            return string;
+        }
+    }
+};
+
 (function() {
 
     function _NJSPath() { }
 
     _NJSPath.basename = function(path, ext) {
-        const baseName = path.substring(path.lastIndexOf('/'));
+        const baseName = path.substring(path.lastIndexOf('/') + 1);
         if(ext && typeof ext === 'string') {
             if(baseName.endsWith(ext)) {
                 return baseName.substring(0, baseName.length - ext.length);
@@ -58,6 +79,23 @@
         return normalized;
     };
 
+    _NJSPath.parse = function(path) {
+        let pathObject = { root: '', dir: '', base: '', ext: '', name: '' };
+        if(path.startsWith('/'))
+            pathObject.root = '/';
+        if(path.includes('/')) {
+            pathObject.dir = path.substring(0, path.lastIndexOf('/'));
+            if(path.lastIndexOf('/') == 0)
+                pathObject.dir = '/';
+        }
+        pathObject.base = _NJSPath.basename(path);
+        if(pathObject.base.includes('.')) {
+            pathObject.name = pathObject.base.substring(0, pathObject.base.lastIndexOf('.'));
+            pathObject.ext = pathObject.base.substring(pathObject.base.lastIndexOf('.'));
+        }
+        return pathObject;
+    };
+
     _NJSPath.resolve = function(...paths) {
         let resolvedPath = '';
         for(let i = 0; i < paths.length; i++) {
@@ -86,6 +124,16 @@
         'O_NONBLOCK': 32768, 'UV_FS_O_FILEMAP': 65536
 
     };
+
+    _NJSFileSystem.StatsDirent = function(name) { this.name = name; this.size = _NJSFileSystemInterface.fileSize(name); };
+    _NJSFileSystem.StatsDirent.prototype.isFile = function() {
+        return _NJSFileSystemInterface.isFile(this.name);
+    };
+    _NJSFileSystem.StatsDirent.prototype.isDirectory = function() {
+        return _NJSFileSystemInterface.isDirectory(this.name);
+    };
+
+    _NJSFileSystem.Stats = _NJSFileSystem.Dirent = _NJSFileSystem.StatsDirent;
 
     _NJSFileSystem.accessSync = function(path, mode = _NJSFileSystem.constants.F_OK) {
         return _NJSFileSystemInterface.accessSync(path, mode);
@@ -184,6 +232,19 @@
         ).then(err => callback(err));
     };
 
+    _NJSFileSystem.unlinkSync = function(path) {
+        return _NJSFileSystemInterface.unlinkSync(path);
+    };
+
+    _NJSFileSystem.unlink = function(path, callback) {
+        new Promise(
+            function(resolve, reject) {
+                const err = _NJSFileSystem.unlinkSync(path) ? true : null;
+                resolve(err);
+            }
+        ).then(err => callback(err));
+    };
+
     _NJSFileSystem.mkdirSync = function(path, recursive = false) {
         return _NJSFileSystemInterface.mkdirSync(path, recursive);
     };
@@ -205,6 +266,57 @@
         ).then(err => callback(err));
     };
 
+    _NJSFileSystem.readdirSync = function(path, withFileTypes = false) {
+        let fileArray = JSON.parse(_NJSFileSystemInterface.readdirSync(path));
+
+        if(withFileTypes)
+            return fileArray.map(_ => _NJSFileSystem.Dirent(_));
+        else
+            return fileArray;
+    };
+
+    _NJSFileSystem.readdir = function(...args) {
+        let path, options = {}, callback;
+        if(args.length == 2) {
+            [path, callback] = args;
+        } else {
+            [path, options, callback] = args;
+        }
+
+        new Promise(
+            function(resolve, reject) {
+                if(!options.withFileTypes) options = { withFileTypes: true };
+                const err = _NJSFileSystem.readdirSync(path, options.withFileTypes) ? true : null;
+                resolve(err);
+            }
+        ).then(err => callback(err));
+    };
+
+    _NJSFileSystem.statSync = _NJSFileSystem.lstatSync = function(path, bigInt = false) {
+        let stats = new _NJSFileSystem.Stats(path);
+        if(bigInt) {
+            stats.size = BigInt(stats.size);
+        }
+        return stats;
+    };
+
+    _NJSFileSystem.stat = _NJSFileSystem.lstat = function(...args) {
+        let path, options = {}, callback;
+        if(args.length == 2) {
+            [path, callback] = args;
+        } else {
+            [path, options, callback] = args;
+        }
+
+        new Promise(
+            function(resolve, reject) {
+                if(!options.bigInt) options = { bigInt: false };
+                const err = _NJSFileSystem.statsSync(path, options.bigInt) ? true : null;
+                resolve(err);
+            }
+        ).then(err => callback(err));
+    };
+
     function _NJSProcess() { }
 
     _NJSProcess.argv = ['/', '/index.html'];
@@ -213,7 +325,7 @@
     _NJSProcess.cwd = () => '/';
     _NJSProcess.emitWarning = console.warn;
     _NJSProcess.env = {
-        'USER': 'user',
+        'USER': 'maldives',
         'PATH': '/',
         'PWD': '/',
         'HOME': '/'
@@ -226,8 +338,13 @@
         'chromium': "85.0.4183.83"
     };
 
-    window.process = _NJSProcess
-    function nw() { }
+    function _NJSOS() { }
+    _NJSOS.EOL = '\n';
+    _NJSOS.constants = {};
+    _NJSOS.homedir = () => '/';
+
+    window.process = _NJSProcess;
+    window.nw = function() { };
 
     nw.Clipboard = function() { };
     nw.Clipboard.ClipboardInstance = function() { };
@@ -283,7 +400,8 @@
     let __njsinterface_list = {
         'path': _NJSPath,
         'fs': _NJSFileSystem,
-        'process': _NJSProcess
+        'process': _NJSProcess,
+        'os': _NJSOS
     };
     let __nwinterface_list = {
         'nw.gui': nw
